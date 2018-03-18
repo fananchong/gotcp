@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"sync/atomic"
 	"time"
 
@@ -21,12 +23,15 @@ func (this *Echo) OnRecv(data []byte, flag byte) {
 }
 
 func (this *Echo) OnClose() {
-
+	fmt.Println("Echo.OnClose")
 }
 
 var g_counter int32 = 0
 
 func main() {
+
+	go http.ListenAndServe(":8000", nil)
+
 	s := &gotcp.Server{}
 	s.RegisterSessType(Echo{})
 	s.Start(":3000")

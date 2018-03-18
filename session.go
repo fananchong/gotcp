@@ -11,15 +11,8 @@ import (
 )
 
 type ISession interface {
-	ISessionInner
 	OnRecv(data []byte, flag byte)
 	OnClose()
-}
-
-type ISessionInner interface {
-	Init(conn net.Conn, root context.Context, sess ISession)
-	Start()
-	RemoteAddr() string
 }
 
 const (
@@ -30,7 +23,6 @@ const (
 )
 
 type Session struct {
-	ISession
 	Conn      net.Conn
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -38,10 +30,11 @@ type Session struct {
 	sendCount int32
 	closed    int32
 	verified  bool
+	Derived   ISession
 }
 
-func (this *Session) Init(conn net.Conn, root context.Context, sess ISession) {
-	this.ISession = sess
+func (this *Session) Init(conn net.Conn, root context.Context, derived ISession) {
+	this.Derived = derived
 	this.Conn = conn
 	if root == nil {
 		this.ctx, this.ctxCancel = context.WithCancel(context.Background())
@@ -70,6 +63,8 @@ func (this *Session) Close() {
 		this.ctxCancel()
 		this.Conn.Close()
 		close(this.sendChan)
+		this.Derived.OnClose()
+		this.Derived = nil
 	}
 }
 
@@ -135,7 +130,6 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 				return
 			}
 		case <-this.ctx.Done():
-			xlog.Infoln("exit recvloop.")
 			return
 		default:
 			totalsize = recvBuff.RdSize()
@@ -171,7 +165,7 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 				recvBuff.WrFlip(readnum)
 				msgbuff = recvBuff.RdBuf()
 			}
-			this.ISession.OnRecv(msgbuff[cmd_header_size:cmd_header_size+datasize], msgbuff[3])
+			this.Derived.OnRecv(msgbuff[cmd_header_size:cmd_header_size+datasize], msgbuff[3])
 			recvBuff.RdFlip(cmd_header_size + datasize)
 		}
 	}
@@ -212,7 +206,6 @@ func (this *Session) sendloop(job *sync.WaitGroup) {
 				}
 			}
 		case <-this.ctx.Done():
-			xlog.Infoln("exit sendloop.")
 			return
 		}
 	}
