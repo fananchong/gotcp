@@ -12,16 +12,18 @@ func GetVaildPort() int {
 		address := fmt.Sprintf(":%d", port)
 		tcpAddr, err := net.ResolveTCPAddr("tcp4", address)
 		if err != nil {
+			xlog.Errorln(err)
 			continue
 		}
-		conn, err := net.DialTCP("tcp", nil, tcpAddr)
+		listener, err := net.ListenTCP("tcp", tcpAddr)
 		if err != nil {
-			if conn != nil {
-				conn.Close()
+			xlog.Errorln(err)
+			if listener != nil {
+				listener.Close()
 			}
 			continue
 		}
-		conn.Close()
+		listener.Close()
 		return port
 	}
 	return 0
