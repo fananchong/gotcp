@@ -5,16 +5,16 @@ import (
 	"time"
 )
 
-func (this *Session) Connect(address string) bool {
+func (this *Session) Connect(address string, sess ISession) bool {
 	if this.IsClosed() == false {
-		xlog.Errorln("close session. server address =", this.remoteAddr())
+		xlog.Errorln("close session. server address =", this.RemoteAddr())
 		this.Close()
 	}
 	conn, err := connectDetail(address)
 	if err == nil {
-		this.init(conn, nil)
-		this.start()
-		xlog.Infoln("connect server success. server address =", this.remoteAddr())
+		this.Init(conn, nil, sess)
+		this.Start()
+		xlog.Infoln("connect server success. server address =", this.RemoteAddr())
 		return true
 	} else {
 		xlog.Errorln(err)

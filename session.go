@@ -17,9 +17,9 @@ type ISession interface {
 }
 
 type ISessionInner interface {
-	init(conn net.Conn, root context.Context)
-	start()
-	remoteAddr() string
+	Init(conn net.Conn, root context.Context, sess ISession)
+	Start()
+	RemoteAddr() string
 }
 
 const (
@@ -35,11 +35,13 @@ type Session struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	sendChan  chan []byte
+	sendCount int32
 	closed    int32
 	verified  bool
 }
 
-func (this *Session) init(conn net.Conn, root context.Context) {
+func (this *Session) Init(conn net.Conn, root context.Context, sess ISession) {
+	this.ISession = sess
 	this.Conn = conn
 	if root == nil {
 		this.ctx, this.ctxCancel = context.WithCancel(context.Background())
@@ -47,12 +49,13 @@ func (this *Session) init(conn net.Conn, root context.Context) {
 		this.ctx, this.ctxCancel = context.WithCancel(root)
 	}
 	this.sendChan = make(chan []byte, send_chan_size)
-	atomic.StoreInt32(&this.closed, -1)
+	atomic.StoreInt32(&this.sendCount, 0)
+	atomic.StoreInt32(&this.closed, 0)
 	this.verified = false
 }
 
-func (this *Session) start() {
-	if atomic.CompareAndSwapInt32(&this.closed, -1, 0) {
+func (this *Session) Start() {
+	if atomic.CompareAndSwapInt32(&this.closed, 0, 1) {
 		job := &sync.WaitGroup{}
 		job.Add(2)
 		go this.sendloop(job)
@@ -62,8 +65,8 @@ func (this *Session) start() {
 }
 
 func (this *Session) Close() {
-	if atomic.CompareAndSwapInt32(&this.closed, 0, 1) {
-		xlog.Infoln("disconnect. remote address =", this.remoteAddr())
+	if atomic.CompareAndSwapInt32(&this.closed, 1, 2) {
+		xlog.Infoln("disconnect. remote address =", this.RemoteAddr())
 		this.ctxCancel()
 		this.Conn.Close()
 		close(this.sendChan)
@@ -71,7 +74,7 @@ func (this *Session) Close() {
 }
 
 func (this *Session) IsClosed() bool {
-	return atomic.LoadInt32(&this.closed) != 0
+	return atomic.LoadInt32(&this.closed) != 1
 }
 
 func (this *Session) Verify() {
@@ -93,6 +96,7 @@ func (this *Session) Send(buffer []byte, flag byte) bool {
 	}
 	select {
 	case this.sendChan <- data:
+		atomic.AddInt32(&this.sendCount, 1)
 	default:
 		xlog.Errorln("send buffer is full! the connection will be closed!")
 		this.Close()
@@ -127,7 +131,7 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 		select {
 		case <-timeout.C:
 			if !this.IsVerified() {
-				xlog.Infoln("verify timeout, remote address =", this.remoteAddr())
+				xlog.Infoln("verify timeout, remote address =", this.RemoteAddr())
 				return
 			}
 		case <-this.ctx.Done():
@@ -167,7 +171,7 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 				recvBuff.WrFlip(readnum)
 				msgbuff = recvBuff.RdBuf()
 			}
-			this.OnRecv(msgbuff[cmd_header_size:cmd_header_size+datasize], msgbuff[3])
+			this.ISession.OnRecv(msgbuff[cmd_header_size:cmd_header_size+datasize], msgbuff[3])
 			recvBuff.RdFlip(cmd_header_size + datasize)
 		}
 	}
@@ -193,17 +197,19 @@ func (this *Session) sendloop(job *sync.WaitGroup) {
 		select {
 		case buff := <-this.sendChan:
 			tmpByte.Append(buff)
-			for {
-				if !tmpByte.RdReady() {
-					tmpByte.Reset()
-					break
+			if atomic.AddInt32(&this.sendCount, -1) <= 0 {
+				for {
+					if !tmpByte.RdReady() {
+						tmpByte.Reset()
+						break
+					}
+					writenum, err = this.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
+					if err != nil {
+						xlog.Infoln("send data fail. err =", err)
+						return
+					}
+					tmpByte.RdFlip(writenum)
 				}
-				writenum, err = this.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
-				if err != nil {
-					xlog.Infoln("send data fail. err =", err)
-					return
-				}
-				tmpByte.RdFlip(writenum)
 			}
 		case <-this.ctx.Done():
 			xlog.Infoln("exit sendloop.")
@@ -212,7 +218,7 @@ func (this *Session) sendloop(job *sync.WaitGroup) {
 	}
 }
 
-func (this *Session) remoteAddr() string {
+func (this *Session) RemoteAddr() string {
 	if this.Conn == nil {
 		return ""
 	}

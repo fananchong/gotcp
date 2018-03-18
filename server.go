@@ -49,10 +49,14 @@ func (this *Server) loop() {
 		default:
 			conn, err := this.accept()
 			if err == nil {
-				sess := reflect.New(this.sessType).Elem().Interface().(ISessionInner)
-				sess.init(conn, this.ctx)
-				sess.start()
-				xlog.Infoln("connect come in. client address =", sess.remoteAddr())
+				sess := reflect.New(this.sessType)
+				f := sess.MethodByName("Init")
+				f.Call([]reflect.Value{reflect.ValueOf(conn), reflect.ValueOf(this.ctx), sess})
+				f = sess.MethodByName("Start")
+				f.Call([]reflect.Value{})
+				f = sess.MethodByName("RemoteAddr")
+				addr := f.Call([]reflect.Value{})
+				xlog.Infoln("connect come in. client address =", addr)
 			}
 		}
 	}

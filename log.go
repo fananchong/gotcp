@@ -1,5 +1,7 @@
 package gotcp
 
+import "fmt"
+
 type ILogger interface {
 	Info(args ...interface{})
 	Infoln(args ...interface{})
@@ -17,21 +19,27 @@ func NewDefaultLogger() *DefaultLogger {
 }
 
 func (this *DefaultLogger) Info(args ...interface{}) {
+	fmt.Print(args...)
 }
 
 func (this *DefaultLogger) Infoln(args ...interface{}) {
+	fmt.Println(args...)
 }
 
 func (this *DefaultLogger) Infof(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
 }
 
 func (this *DefaultLogger) Error(args ...interface{}) {
+	fmt.Print(args...)
 }
 
 func (this *DefaultLogger) Errorln(args ...interface{}) {
+	fmt.Println(args...)
 }
 
 func (this *DefaultLogger) Errorf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
 }
 
 var (
