@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package main;
+
+enum Cmd
+{
+    Invaild = 0;
+    Echo = 1;
+}
+
+message MsgEcho
+{
+    int32 num  = 1;
+}
