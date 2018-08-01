@@ -102,6 +102,21 @@ func (this *Session) Send(buffer []byte, flag byte) bool {
 	return true
 }
 
+func (this *Session) SendRaw(data []byte) bool {
+	if this.IsClosed() {
+		return false
+	}
+	select {
+	case this.sendChan <- data:
+		atomic.AddInt32(&this.sendCount, 1)
+	default:
+		xlog.Errorln("send buffer is full! the connection will be closed!")
+		this.Close()
+		return false
+	}
+	return true
+}
+
 func (this *Session) recvloop(job *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
