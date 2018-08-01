@@ -76,6 +76,7 @@ func (this *Session) IsClosed() bool {
 
 func (this *Session) Verify() {
 	this.verified = true
+	this.verifiedChan <- 1
 }
 
 func (this *Session) IsVerified() bool {
@@ -176,18 +177,8 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 				msgbuff = recvBuff.RdBuf()
 			}
 
-			checkVerified := 0
-			if this.verified {
-				checkVerified++
-			}
 			this.Derived.OnRecv(msgbuff[cmd_header_size:cmd_header_size+datasize], msgbuff[3])
 			recvBuff.RdFlip(cmd_header_size + datasize)
-			if this.verified {
-				checkVerified++
-				if checkVerified == 1 {
-					this.verifiedChan <- 1
-				}
-			}
 		}
 	}
 }
