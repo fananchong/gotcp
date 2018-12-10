@@ -62,7 +62,9 @@ func (this *Session) Start() {
 func (this *Session) Close() {
 	if atomic.CompareAndSwapInt32(&this.closed, 1, 2) {
 		xlog.Infoln("disconnect. remote address =", this.RemoteAddr())
-		this.ctxCancel()
+		if this.ctxCancel != nil {
+			this.ctxCancel()
+		}
 		this.Conn.Close()
 		close(this.sendChan)
 		this.Derived.OnClose()

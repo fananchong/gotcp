@@ -36,7 +36,9 @@ func (this *Server) Start(address string) bool {
 }
 
 func (this *Server) Close() {
-	this.ctxCancel()
+	if this.ctxCancel != nil {
+		this.ctxCancel()
+	}
 	this.listener.Close()
 	this.listener = nil
 }
