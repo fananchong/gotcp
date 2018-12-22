@@ -5,7 +5,7 @@ import (
 	"compress/zlib"
 	"io"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
 const (

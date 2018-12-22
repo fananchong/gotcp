@@ -2,6 +2,7 @@ package gotcp
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"reflect"
 	"time"
@@ -32,6 +33,17 @@ func (this *Server) Start(address string) bool {
 	xlog.Infoln("start listen", address)
 	this.ctx, this.ctxCancel = context.WithCancel(context.Background())
 	go this.loop()
+	return true
+}
+
+func (this *Server) StartByUnfixedPort(ip string, port *uint16) bool {
+	for {
+		address := fmt.Sprintf("%s:%d", ip, *port)
+		if ok := this.Start(address); ok {
+			break
+		}
+		*port = *port + 1
+	}
 	return true
 }
 

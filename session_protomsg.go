@@ -1,7 +1,7 @@
 package gotcp
 
 import (
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
 func (this *Session) SendMsg(cmd uint64, msg proto.Message) bool {
