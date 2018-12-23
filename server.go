@@ -21,13 +21,19 @@ func (this *Server) RegisterSessType(v interface{}) {
 }
 
 func (this *Server) Start(address string) bool {
+	return this.startDetail(address, true)
+}
+
+func (this *Server) startDetail(address string, printError bool) bool {
 	this.address = address
 	if this.listener != nil {
 		return true
 	}
 	err := this.bind(address)
 	if err != nil {
-		xlog.Errorln(err)
+		if printError {
+			xlog.Errorln(err)
+		}
 		return false
 	}
 	xlog.Infoln("start listen", address)
@@ -39,7 +45,7 @@ func (this *Server) Start(address string) bool {
 func (this *Server) StartByUnfixedPort(ip string, port *uint16) bool {
 	for {
 		address := fmt.Sprintf("%s:%d", ip, *port)
-		if ok := this.Start(address); ok {
+		if ok := this.startDetail(address, false); ok {
 			break
 		}
 		*port = *port + 1
