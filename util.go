@@ -5,6 +5,7 @@ import (
 	"net"
 )
 
+// GetVaildPort : 获取 1 个有效的端口
 func GetVaildPort(showmsg bool) int {
 	port := 10000
 	for {
@@ -30,5 +31,4 @@ func GetVaildPort(showmsg bool) int {
 		listener.Close()
 		return port
 	}
-	return 0
 }

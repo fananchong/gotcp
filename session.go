@@ -10,18 +10,20 @@ import (
 	"time"
 )
 
+// ISession : 网络会话类接口
 type ISession interface {
 	OnRecv(data []byte, flag byte)
 	OnClose()
 }
 
 const (
-	cmd_max_size    = 128 * 1024 // 消息最大长度
-	cmd_header_size = 4          // 3字节指令长度 1字节是否压缩
-	cmd_verify_time = 10         // 连接验证超时时间
-	send_chan_size  = 1024       // 发送缓冲区大小
+	cmdMaxSize    = 128 * 1024 // 消息最大长度
+	cmdHeaderSize = 4          // 3字节指令长度 1字节是否压缩
+	cmdVerifyTime = 10         // 连接验证超时时间
+	sendChanSize  = 1024       // 发送缓冲区大小
 )
 
+// Session : 网络会话类
 type Session struct {
 	Conn         net.Conn
 	ctx          context.Context
@@ -34,59 +36,66 @@ type Session struct {
 	Derived      ISession
 }
 
-func (this *Session) Init(conn net.Conn, root context.Context, derived ISession) {
-	this.Derived = derived
-	this.Conn = conn
+// Init : 初始化
+func (sess *Session) Init(root context.Context, conn net.Conn, derived ISession) {
+	sess.Derived = derived
+	sess.Conn = conn
 	if root == nil {
-		this.ctx, this.ctxCancel = context.WithCancel(context.Background())
+		sess.ctx, sess.ctxCancel = context.WithCancel(context.Background())
 	} else {
-		this.ctx, this.ctxCancel = context.WithCancel(root)
+		sess.ctx, sess.ctxCancel = context.WithCancel(root)
 	}
-	this.sendChan = make(chan []byte, send_chan_size)
-	atomic.StoreInt32(&this.sendCount, 0)
-	atomic.StoreInt32(&this.closed, 0)
-	this.verified = false
-	this.verifiedChan = make(chan int, 1)
+	sess.sendChan = make(chan []byte, sendChanSize)
+	atomic.StoreInt32(&sess.sendCount, 0)
+	atomic.StoreInt32(&sess.closed, 0)
+	sess.verified = false
+	sess.verifiedChan = make(chan int, 1)
 }
 
-func (this *Session) Start() {
-	if atomic.CompareAndSwapInt32(&this.closed, 0, 1) {
+// Start : 启动网络会话
+func (sess *Session) Start() {
+	if atomic.CompareAndSwapInt32(&sess.closed, 0, 1) {
 		job := &sync.WaitGroup{}
 		job.Add(2)
-		go this.sendloop(job)
-		go this.recvloop(job)
+		go sess.sendloop(job)
+		go sess.recvloop(job)
 		job.Wait()
 	}
 }
 
-func (this *Session) Close() {
-	if atomic.CompareAndSwapInt32(&this.closed, 1, 2) {
-		xlog.Infoln("disconnect. remote address =", this.RemoteAddr())
-		if this.ctxCancel != nil {
-			this.ctxCancel()
+// Close : 关闭网络会话
+func (sess *Session) Close() {
+	if atomic.CompareAndSwapInt32(&sess.closed, 1, 2) {
+		xlog.Infoln("disconnect. remote address =", sess.RemoteAddr())
+		if sess.ctxCancel != nil {
+			sess.ctxCancel()
 		}
-		this.Conn.Close()
-		close(this.sendChan)
-		this.Derived.OnClose()
-		this.Derived = nil
+		sess.Conn.Close()
+		close(sess.sendChan)
+		sess.Derived.OnClose()
+		sess.Derived = nil
 	}
 }
 
-func (this *Session) IsClosed() bool {
-	return atomic.LoadInt32(&this.closed) != 1
+// IsClosed : 是否已关闭
+func (sess *Session) IsClosed() bool {
+	return atomic.LoadInt32(&sess.closed) != 1
 }
 
-func (this *Session) Verify() {
-	this.verified = true
-	this.verifiedChan <- 1
+// Verify : 设置已验证标记
+func (sess *Session) Verify() {
+	sess.verified = true
+	sess.verifiedChan <- 1
 }
 
-func (this *Session) IsVerified() bool {
-	return this.verified
+// IsVerified : 是否已验证
+func (sess *Session) IsVerified() bool {
+	return sess.verified
 }
 
-func (this *Session) Send(buffer []byte, flag byte) bool {
-	if this.IsClosed() {
+// Send : 发送数据
+func (sess *Session) Send(buffer []byte, flag byte) bool {
+	if sess.IsClosed() {
 		return false
 	}
 	bsize := len(buffer)
@@ -95,38 +104,39 @@ func (this *Session) Send(buffer []byte, flag byte) bool {
 		data = append(data, buffer...)
 	}
 	select {
-	case this.sendChan <- data:
-		atomic.AddInt32(&this.sendCount, 1)
+	case sess.sendChan <- data:
+		atomic.AddInt32(&sess.sendCount, 1)
 	default:
 		xlog.Errorln("send buffer is full! the connection will be closed!")
-		this.Close()
+		sess.Close()
 		return false
 	}
 	return true
 }
 
-func (this *Session) SendRaw(data []byte) bool {
-	if this.IsClosed() {
+// SendRaw : 发送原始数据
+func (sess *Session) SendRaw(data []byte) bool {
+	if sess.IsClosed() {
 		return false
 	}
 	select {
-	case this.sendChan <- data:
-		atomic.AddInt32(&this.sendCount, 1)
+	case sess.sendChan <- data:
+		atomic.AddInt32(&sess.sendCount, 1)
 	default:
 		xlog.Errorln("send buffer is full! the connection will be closed!")
-		this.Close()
+		sess.Close()
 		return false
 	}
 	return true
 }
 
-func (this *Session) recvloop(job *sync.WaitGroup) {
+func (sess *Session) recvloop(job *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
 			xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
 		}
 	}()
-	defer this.Close()
+	defer sess.Close()
 
 	var (
 		neednum   int
@@ -135,21 +145,21 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 		totalsize int
 		datasize  int
 		msgbuff   []byte
-		recvBuff  *ByteBuffer = NewByteBuffer()
+		recvBuff  = NewByteBuffer()
 	)
 
 	job.Done()
 
 	for {
 		select {
-		case <-this.ctx.Done():
+		case <-sess.ctx.Done():
 			return
 		default:
 			totalsize = recvBuff.RdSize()
-			if totalsize < cmd_header_size {
-				neednum = cmd_header_size - totalsize
+			if totalsize < cmdHeaderSize {
+				neednum = cmdHeaderSize - totalsize
 				recvBuff.WrGrow(neednum)
-				readnum, err = io.ReadAtLeast(this.Conn, recvBuff.WrBuf(), neednum)
+				readnum, err = io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
 				if err != nil {
 					xlog.Infoln("recv data fail. error =", err)
 					return
@@ -159,7 +169,7 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 			}
 			msgbuff = recvBuff.RdBuf()
 			datasize = int(msgbuff[0]) | int(msgbuff[1])<<8 | int(msgbuff[2])<<16
-			if datasize > cmd_max_size-cmd_header_size {
+			if datasize > cmdMaxSize-cmdHeaderSize {
 				xlog.Errorln("data exceed the maximum. datasize =", datasize)
 				return
 			}
@@ -167,10 +177,10 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 				xlog.Errorln("data length is 0 or negative. datasize =", datasize)
 				return
 			}
-			if totalsize < cmd_header_size+datasize {
-				neednum = cmd_header_size + datasize - totalsize
+			if totalsize < cmdHeaderSize+datasize {
+				neednum = cmdHeaderSize + datasize - totalsize
 				recvBuff.WrGrow(neednum)
-				readnum, err = io.ReadAtLeast(this.Conn, recvBuff.WrBuf(), neednum)
+				readnum, err = io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
 				if err != nil {
 					xlog.Infoln("recv data fail. error =", err)
 					return
@@ -179,25 +189,25 @@ func (this *Session) recvloop(job *sync.WaitGroup) {
 				msgbuff = recvBuff.RdBuf()
 			}
 
-			this.Derived.OnRecv(msgbuff[cmd_header_size:cmd_header_size+datasize], msgbuff[3])
-			recvBuff.RdFlip(cmd_header_size + datasize)
+			sess.Derived.OnRecv(msgbuff[cmdHeaderSize:cmdHeaderSize+datasize], msgbuff[3])
+			recvBuff.RdFlip(cmdHeaderSize + datasize)
 		}
 	}
 }
 
-func (this *Session) sendloop(job *sync.WaitGroup) {
+func (sess *Session) sendloop(job *sync.WaitGroup) {
 	var (
 		tmpByte  = NewByteBuffer()
 		writenum int
 		err      error
-		timeout  = time.NewTimer(time.Second * cmd_verify_time)
+		timeout  = time.NewTimer(time.Second * cmdVerifyTime)
 	)
 
 	defer func() {
 		if err := recover(); err != nil {
 			xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
 		}
-		this.Close()
+		sess.Close()
 	}()
 	defer timeout.Stop()
 
@@ -205,15 +215,15 @@ func (this *Session) sendloop(job *sync.WaitGroup) {
 
 	for {
 		select {
-		case buff := <-this.sendChan:
+		case buff := <-sess.sendChan:
 			tmpByte.Append(buff)
-			if atomic.AddInt32(&this.sendCount, -1) <= 0 {
+			if atomic.AddInt32(&sess.sendCount, -1) <= 0 {
 				for {
 					if !tmpByte.RdReady() {
 						tmpByte.Reset()
 						break
 					}
-					writenum, err = this.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
+					writenum, err = sess.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
 					if err != nil {
 						xlog.Infoln("send data fail. err =", err)
 						return
@@ -221,20 +231,21 @@ func (this *Session) sendloop(job *sync.WaitGroup) {
 					tmpByte.RdFlip(writenum)
 				}
 			}
-		case <-this.ctx.Done():
+		case <-sess.ctx.Done():
 			return
-		case <-this.verifiedChan:
+		case <-sess.verifiedChan:
 			timeout.Stop()
 		case <-timeout.C:
-			xlog.Infoln("verify timeout, remote address =", this.RemoteAddr())
+			xlog.Infoln("verify timeout, remote address =", sess.RemoteAddr())
 			return
 		}
 	}
 }
 
-func (this *Session) RemoteAddr() string {
-	if this.Conn == nil {
+// RemoteAddr : 远端 IP 地址
+func (sess *Session) RemoteAddr() string {
+	if sess.Conn == nil {
 		return ""
 	}
-	return this.Conn.RemoteAddr().String()
+	return sess.Conn.RemoteAddr().String()
 }

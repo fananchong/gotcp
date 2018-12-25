@@ -9,15 +9,22 @@ import (
 )
 
 const (
+	// DefaultMaxCompressSize : 缺省启动压缩的数据大小
 	DefaultMaxCompressSize = 1024
-	DefaultMaxCmdSize      = 2
-	CmdSizeLimit           = 8
+
+	// DefaultMaxCmdSize : 缺省CMD字段大小
+	DefaultMaxCmdSize = 2
+
+	// CmdSizeLimit : CMD字段大小限制
+	CmdSizeLimit = 8
 )
 
+// EncodeCmd : 将 CMD字段、protobuf 打包到一起
 func EncodeCmd(cmd uint64, msg proto.Message) ([]byte, byte, error) {
 	return EncodeCmdEx(cmd, msg, DefaultMaxCompressSize, DefaultMaxCmdSize)
 }
 
+// EncodeCmdEx : 将 CMD字段、protobuf 打包到一起
 func EncodeCmdEx(cmd uint64, msg proto.Message, maxCompressSize, maxCmdSize int) ([]byte, byte, error) {
 	data, err := proto.Marshal(msg)
 	if err != nil {
@@ -52,25 +59,29 @@ func EncodeCmdEx(cmd uint64, msg proto.Message, maxCompressSize, maxCmdSize int)
 	return p, byte(flag), nil
 }
 
+// GetCmd : 获取消息号
 func GetCmd(buf []byte) uint64 {
 	return GetCmdEx(buf, DefaultMaxCmdSize)
 }
 
+// GetCmdEx : 获取消息号
 func GetCmdEx(buf []byte, maxCmdSize int) uint64 {
 	if len(buf) < maxCmdSize || len(buf) == 0 {
 		return 0
 	}
-	var v uint64 = 0
+	var v uint64
 	for i := 0; i < maxCmdSize && i < CmdSizeLimit; i++ {
 		v = v | uint64(buf[i])<<uint(8*i)
 	}
 	return v
 }
 
+// DecodeCmd : 解析数据，获取 protobuf 消息
 func DecodeCmd(buf []byte, flag byte, msg proto.Message) proto.Message {
 	return DecodeCmdEx(buf, flag, msg, DefaultMaxCmdSize)
 }
 
+// DecodeCmdEx : 解析数据，获取 protobuf 消息
 func DecodeCmdEx(buf []byte, flag byte, msg proto.Message, maxCmdSize int) proto.Message {
 	if len(buf) < maxCmdSize || len(buf) == 0 {
 		xlog.Errorln("[协议] 数据错误 ", buf)

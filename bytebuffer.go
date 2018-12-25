@@ -5,6 +5,7 @@ const (
 	initsize = 16
 )
 
+// ByteBuffer : 缓冲区类
 type ByteBuffer struct {
 	_buffer      []byte
 	_prependSize int
@@ -12,6 +13,7 @@ type ByteBuffer struct {
 	_writerIndex int
 }
 
+// NewByteBuffer : 缓冲区类的构造函数
 func NewByteBuffer() *ByteBuffer {
 	return &ByteBuffer{
 		_buffer:      make([]byte, presize+initsize),
@@ -21,78 +23,88 @@ func NewByteBuffer() *ByteBuffer {
 	}
 }
 
-func (this *ByteBuffer) Append(buff []byte) {
+// Append : 向缓冲区追加数据
+func (bytebuffer *ByteBuffer) Append(buff []byte) {
 	size := len(buff)
 	if size == 0 {
 		return
 	}
-	this.WrGrow(size)
-	copy(this._buffer[this._writerIndex:], buff)
-	this.WrFlip(size)
+	bytebuffer.WrGrow(size)
+	copy(bytebuffer._buffer[bytebuffer._writerIndex:], buff)
+	bytebuffer.WrFlip(size)
 }
 
-func (this *ByteBuffer) WrBuf() []byte {
-	if this._writerIndex >= len(this._buffer) {
+// WrBuf : 获取缓冲区可写入区域
+func (bytebuffer *ByteBuffer) WrBuf() []byte {
+	if bytebuffer._writerIndex >= len(bytebuffer._buffer) {
 		return nil
 	}
-	return this._buffer[this._writerIndex:]
+	return bytebuffer._buffer[bytebuffer._writerIndex:]
 }
 
-func (this *ByteBuffer) WrSize() int {
-	return len(this._buffer) - this._writerIndex
+// WrSize : 获取缓冲区可写入区域大小
+func (bytebuffer *ByteBuffer) WrSize() int {
+	return len(bytebuffer._buffer) - bytebuffer._writerIndex
 }
 
-func (this *ByteBuffer) WrFlip(size int) {
-	this._writerIndex += size
+// WrFlip : 完成写入 size 字节数据
+func (bytebuffer *ByteBuffer) WrFlip(size int) {
+	bytebuffer._writerIndex += size
 }
 
-func (this *ByteBuffer) WrGrow(size int) {
-	if size > this.WrSize() {
-		this.wrreserve(size)
+// WrGrow : 如果缓冲区可写入区域大小小于 size ，扩大缓冲区
+func (bytebuffer *ByteBuffer) WrGrow(size int) {
+	if size > bytebuffer.WrSize() {
+		bytebuffer.wrreserve(size)
 	}
 }
 
-func (this *ByteBuffer) RdBuf() []byte {
-	if this._readerIndex >= len(this._buffer) {
+// RdBuf :  获取缓冲区可读取区域
+func (bytebuffer *ByteBuffer) RdBuf() []byte {
+	if bytebuffer._readerIndex >= len(bytebuffer._buffer) {
 		return nil
 	}
-	return this._buffer[this._readerIndex:]
+	return bytebuffer._buffer[bytebuffer._readerIndex:]
 }
 
-func (this *ByteBuffer) RdReady() bool {
-	return this._writerIndex > this._readerIndex
+// RdReady : 是否有数据可读
+func (bytebuffer *ByteBuffer) RdReady() bool {
+	return bytebuffer._writerIndex > bytebuffer._readerIndex
 }
 
-func (this *ByteBuffer) RdSize() int {
-	return this._writerIndex - this._readerIndex
+// RdSize : 获取缓冲区可写入区域大小
+func (bytebuffer *ByteBuffer) RdSize() int {
+	return bytebuffer._writerIndex - bytebuffer._readerIndex
 }
 
-func (this *ByteBuffer) RdFlip(size int) {
-	if size < this.RdSize() {
-		this._readerIndex += size
+// RdFlip : 完成读取 size 字节数据
+func (bytebuffer *ByteBuffer) RdFlip(size int) {
+	if size < bytebuffer.RdSize() {
+		bytebuffer._readerIndex += size
 	} else {
-		this.Reset()
+		bytebuffer.Reset()
 	}
 }
 
-func (this *ByteBuffer) Reset() {
-	this._readerIndex = this._prependSize
-	this._writerIndex = this._prependSize
+// Reset : 重置缓冲区
+func (bytebuffer *ByteBuffer) Reset() {
+	bytebuffer._readerIndex = bytebuffer._prependSize
+	bytebuffer._writerIndex = bytebuffer._prependSize
 }
 
-func (this *ByteBuffer) wrreserve(size int) {
-	if this.WrSize()+this._readerIndex < size+this._prependSize {
-		newsize := this.RdSize() + this.WrSize()
-		for newsize < this._writerIndex+size {
+func (bytebuffer *ByteBuffer) wrreserve(size int) {
+	if bytebuffer.WrSize()+bytebuffer._readerIndex < size+bytebuffer._prependSize {
+		newsize := bytebuffer.RdSize() + bytebuffer.WrSize()
+		for newsize < bytebuffer._writerIndex+size {
 			newsize <<= 1
 		}
-		tmpbuff := make([]byte, newsize+this._prependSize)
-		copy(tmpbuff, this._buffer)
-		this._buffer = tmpbuff
+		tmpbuff := make([]byte, newsize+bytebuffer._prependSize)
+		copy(tmpbuff, bytebuffer._buffer)
+		bytebuffer._buffer = tmpbuff
 	} else {
-		readable := this.RdSize()
-		copy(this._buffer[this._prependSize:], this._buffer[this._readerIndex:this._writerIndex])
-		this._readerIndex = this._prependSize
-		this._writerIndex = this._readerIndex + readable
+		readable := bytebuffer.RdSize()
+		copy(bytebuffer._buffer[bytebuffer._prependSize:], bytebuffer._buffer[bytebuffer._readerIndex:bytebuffer._writerIndex])
+		bytebuffer._readerIndex = bytebuffer._prependSize
+		bytebuffer._writerIndex = bytebuffer._readerIndex + readable
 	}
 }

@@ -2,6 +2,7 @@ package gotcp
 
 import "fmt"
 
+// ILogger : 日志类接口
 type ILogger interface {
 	Info(args ...interface{})
 	Infoln(args ...interface{})
@@ -11,34 +12,42 @@ type ILogger interface {
 	Errorf(format string, args ...interface{})
 }
 
+// DefaultLogger : 缺省日志类
 type DefaultLogger struct {
 }
 
+// NewDefaultLogger : 缺省日志类的构造函数
 func NewDefaultLogger() *DefaultLogger {
 	return &DefaultLogger{}
 }
 
-func (this *DefaultLogger) Info(args ...interface{}) {
+// Info :
+func (logger *DefaultLogger) Info(args ...interface{}) {
 	fmt.Print(args...)
 }
 
-func (this *DefaultLogger) Infoln(args ...interface{}) {
+// Infoln :
+func (logger *DefaultLogger) Infoln(args ...interface{}) {
 	fmt.Println(args...)
 }
 
-func (this *DefaultLogger) Infof(format string, args ...interface{}) {
+// Infof :
+func (logger *DefaultLogger) Infof(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
 }
 
-func (this *DefaultLogger) Error(args ...interface{}) {
+// Error :
+func (logger *DefaultLogger) Error(args ...interface{}) {
 	fmt.Print(args...)
 }
 
-func (this *DefaultLogger) Errorln(args ...interface{}) {
+// Errorln :
+func (logger *DefaultLogger) Errorln(args ...interface{}) {
 	fmt.Println(args...)
 }
 
-func (this *DefaultLogger) Errorf(format string, args ...interface{}) {
+// Errorf :
+func (logger *DefaultLogger) Errorf(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
 }
 
@@ -46,6 +55,7 @@ var (
 	xlog ILogger = NewDefaultLogger()
 )
 
+// SetLogger : 设置日志类实例
 func SetLogger(log ILogger) {
 	xlog = log
 }

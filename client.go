@@ -5,21 +5,21 @@ import (
 	"time"
 )
 
-func (this *Session) Connect(address string, derived ISession) bool {
-	if this.IsClosed() == false {
-		xlog.Errorln("close session. server address =", this.RemoteAddr())
-		this.Close()
+// Connect : 连接服务器
+func (sess *Session) Connect(address string, derived ISession) bool {
+	if sess.IsClosed() == false {
+		xlog.Errorln("close session. server address =", sess.RemoteAddr())
+		sess.Close()
 	}
 	conn, err := connectDetail(address)
 	if err == nil {
-		this.Init(conn, nil, derived)
-		this.Start()
-		xlog.Infoln("connect server success. server address =", this.RemoteAddr())
+		sess.Init(nil, conn, derived)
+		sess.Start()
+		xlog.Infoln("connect server success. server address =", sess.RemoteAddr())
 		return true
-	} else {
-		xlog.Errorln(err)
-		return false
 	}
+	xlog.Errorln(err)
+	return false
 }
 
 func connectDetail(address string) (*net.TCPConn, error) {
