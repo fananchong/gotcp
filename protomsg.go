@@ -26,6 +26,22 @@ func EncodeCmd(cmd uint64, msg proto.Message) ([]byte, byte, error) {
 
 // EncodeCmdEx : 将 CMD字段、protobuf 打包到一起
 func EncodeCmdEx(cmd uint64, msg proto.Message, maxCompressSize, maxCmdSize int) ([]byte, byte, error) {
+	data, flag, err := Encode(cmd, msg)
+	if err != nil {
+		xlog.Errorln("[协议] 编码错误 ", err)
+		return nil, 0, err
+	}
+	datalen := len(data)
+	p := make([]byte, maxCmdSize+datalen)
+	for i := 0; i < maxCmdSize && i < CmdSizeLimit; i++ {
+		p[i] = byte(cmd >> uint(8*i))
+	}
+	copy(p[maxCmdSize:], data)
+	return p, byte(flag), nil
+}
+
+// Encode : 将 protobuf 打包
+func Encode(cmd uint64, msg proto.Message) ([]byte, byte, error) {
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		xlog.Errorln("[协议] 编码错误 ", err)
@@ -33,8 +49,7 @@ func EncodeCmdEx(cmd uint64, msg proto.Message, maxCompressSize, maxCmdSize int)
 	}
 	datalen := len(data)
 	flag := 0
-
-	if datalen >= maxCompressSize {
+	if datalen >= DefaultMaxCompressSize {
 		mbuff, err := zlibCompress(data)
 		if mbuff != nil {
 			mbufflen := len(mbuff)
@@ -43,20 +58,14 @@ func EncodeCmdEx(cmd uint64, msg proto.Message, maxCompressSize, maxCmdSize int)
 				datalen = mbufflen
 				flag = 1
 			} else {
-				xlog.Errorln("[协议] zlib压缩，大小更大! cmd = ", cmd)
+				xlog.Infoln("[协议] zlib压缩，大小更大! cmd = ", cmd)
 			}
 		}
 		if err != nil {
-			xlog.Errorln("[协议] zlib压缩，error = ", err)
+			xlog.Infoln("[协议] zlib压缩，error = ", err)
 		}
 	}
-
-	p := make([]byte, maxCmdSize+datalen)
-	for i := 0; i < maxCmdSize && i < CmdSizeLimit; i++ {
-		p[i] = byte(cmd >> uint(8*i))
-	}
-	copy(p[maxCmdSize:], data)
-	return p, byte(flag), nil
+	return data, byte(flag), nil
 }
 
 // GetCmd : 获取消息号

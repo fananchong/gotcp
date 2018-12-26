@@ -28,7 +28,7 @@ type Session struct {
 	Conn         net.Conn
 	ctx          context.Context
 	ctxCancel    context.CancelFunc
-	sendChan     chan []byte
+	sendChan     chan MsgPack
 	sendCount    int32
 	closed       int32
 	verified     bool
@@ -45,7 +45,7 @@ func (sess *Session) Init(root context.Context, conn net.Conn, derived ISession)
 	} else {
 		sess.ctx, sess.ctxCancel = context.WithCancel(root)
 	}
-	sess.sendChan = make(chan []byte, sendChanSize)
+	sess.sendChan = make(chan MsgPack, sendChanSize)
 	atomic.StoreInt32(&sess.sendCount, 0)
 	atomic.StoreInt32(&sess.closed, 0)
 	sess.verified = false
@@ -93,18 +93,47 @@ func (sess *Session) IsVerified() bool {
 	return sess.verified
 }
 
+// SendEx : 发送数据
+func (sess *Session) SendEx(cmd int, buffer []byte, flag byte) bool {
+	if sess.IsClosed() {
+		return false
+	}
+	bsize := len(buffer)
+	pack := MsgPack{}
+	pack.Header[0] = byte(bsize)
+	pack.Header[1] = byte(bsize >> 8)
+	pack.Header[2] = byte(bsize >> 16)
+	pack.Header[3] = flag
+	pack.Header[4] = byte(cmd)
+	pack.Header[5] = byte(cmd >> 8)
+	pack.Data = buffer
+	pack.Flag = HeaderAndData
+	select {
+	case sess.sendChan <- pack:
+		atomic.AddInt32(&sess.sendCount, 1)
+	default:
+		xlog.Errorln("send buffer is full! the connection will be closed!")
+		sess.Close()
+		return false
+	}
+	return true
+}
+
 // Send : 发送数据
 func (sess *Session) Send(buffer []byte, flag byte) bool {
 	if sess.IsClosed() {
 		return false
 	}
 	bsize := len(buffer)
-	data := []byte{byte(bsize), byte(bsize >> 8), byte(bsize >> 16), flag}
-	if bsize != 0 {
-		data = append(data, buffer...)
-	}
+	pack := MsgPack{}
+	pack.Header[0] = byte(bsize)
+	pack.Header[1] = byte(bsize >> 8)
+	pack.Header[2] = byte(bsize >> 16)
+	pack.Header[3] = flag
+	pack.Data = buffer
+	pack.Flag = HeaderNoCmdAndData
 	select {
-	case sess.sendChan <- data:
+	case sess.sendChan <- pack:
 		atomic.AddInt32(&sess.sendCount, 1)
 	default:
 		xlog.Errorln("send buffer is full! the connection will be closed!")
@@ -119,8 +148,11 @@ func (sess *Session) SendRaw(data []byte) bool {
 	if sess.IsClosed() {
 		return false
 	}
+	pack := MsgPack{}
+	pack.Data = data
+	pack.Flag = DataOnly
 	select {
-	case sess.sendChan <- data:
+	case sess.sendChan <- pack:
 		atomic.AddInt32(&sess.sendCount, 1)
 	default:
 		xlog.Errorln("send buffer is full! the connection will be closed!")
@@ -215,8 +247,18 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 
 	for {
 		select {
-		case buff := <-sess.sendChan:
-			tmpByte.Append(buff)
+		case pack := <-sess.sendChan:
+			switch pack.Flag {
+			case HeaderAndData:
+				tmpByte.Append(pack.Header[:])
+				tmpByte.Append(pack.Data)
+			case HeaderNoCmdAndData:
+				tmpByte.Append(pack.Header[:4])
+				tmpByte.Append(pack.Data)
+			case DataOnly:
+				tmpByte.Append(pack.Data)
+			default:
+			}
 			if atomic.AddInt32(&sess.sendCount, -1) <= 0 {
 				for {
 					if !tmpByte.RdReady() {
