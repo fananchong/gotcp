@@ -1,8 +1,6 @@
 package gotcp
 
 import (
-	"fmt"
-
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -12,9 +10,5 @@ func (sess *Session) SendMsg(cmd uint64, msg proto.Message) bool {
 	if err != nil {
 		return false
 	}
-	fmt.Println("send data =====================")
-	fmt.Println("cmd:", cmd)
-	fmt.Println("data len:", len(data))
-	fmt.Println("flag:", flag)
 	return sess.SendEx((int)(cmd), data, flag)
 }
