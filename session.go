@@ -93,12 +93,12 @@ func (sess *Session) IsVerified() bool {
 	return sess.verified
 }
 
-// SendEx : 发送数据
+// SendEx : 发送数据 (buffer 中未包括cmd)
 func (sess *Session) SendEx(cmd int, buffer []byte, flag byte) bool {
 	if sess.IsClosed() {
 		return false
 	}
-	bsize := len(buffer)
+	bsize := len(buffer) + 2
 	pack := MsgPack{}
 	pack.Header[0] = byte(bsize)
 	pack.Header[1] = byte(bsize >> 8)
@@ -119,7 +119,7 @@ func (sess *Session) SendEx(cmd int, buffer []byte, flag byte) bool {
 	return true
 }
 
-// Send : 发送数据
+// Send : 发送数据 (buffer 中已包括cmd)
 func (sess *Session) Send(buffer []byte, flag byte) bool {
 	if sess.IsClosed() {
 		return false
