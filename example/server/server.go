@@ -34,8 +34,9 @@ func main() {
 
 	s := &gotcp.Server{}
 	s.RegisterSessType(Echo{})
-	var port uint16 = 3000
-	s.StartByUnfixedPort("127.0.0.1", &port)
+	s.SetAddress("127.0.0.1", 3000)
+	s.SetUnfixedPort(true)
+	s.Start()
 
 	tick := time.NewTicker(5 * time.Second)
 	pre := time.Now()

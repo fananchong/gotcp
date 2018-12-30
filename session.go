@@ -20,20 +20,26 @@ const (
 	cmdMaxSize    = 128 * 1024 // 消息最大长度
 	cmdHeaderSize = 4          // 3字节指令长度 1字节是否压缩
 	cmdVerifyTime = 10         // 连接验证超时时间
-	sendChanSize  = 1024       // 发送缓冲区大小
 )
 
 // Session : 网络会话类
 type Session struct {
-	Conn         net.Conn
-	ctx          context.Context
-	ctxCancel    context.CancelFunc
-	sendChan     chan MsgPack
-	sendCount    int32
-	closed       int32
-	verified     bool
-	verifiedChan chan int
-	Derived      ISession
+	Conn              net.Conn
+	ctx               context.Context
+	ctxCancel         context.CancelFunc
+	sendBuff          *ByteBuffer
+	sendChan          chan int
+	sendMutex         sync.Mutex
+	sendBuffSizeLimit int // -1 没有限制
+	closed            int32
+	verified          bool
+	verifiedChan      chan int
+	Derived           ISession
+}
+
+// SetSendBuffSizeLimt : 设置发送缓冲区限制
+func (sess *Session) SetSendBuffSizeLimt(limit int) {
+	sess.sendBuffSizeLimit = limit
 }
 
 // Init : 初始化
@@ -45,8 +51,9 @@ func (sess *Session) Init(root context.Context, conn net.Conn, derived ISession)
 	} else {
 		sess.ctx, sess.ctxCancel = context.WithCancel(root)
 	}
-	sess.sendChan = make(chan MsgPack, sendChanSize)
-	atomic.StoreInt32(&sess.sendCount, 0)
+	sess.sendBuff = NewByteBuffer()
+	sess.sendChan = make(chan int, 1)
+	sess.sendBuffSizeLimit = -1
 	atomic.StoreInt32(&sess.closed, 0)
 	sess.verified = false
 	sess.verifiedChan = make(chan int, 1)
@@ -99,22 +106,20 @@ func (sess *Session) SendEx(cmd int, buffer []byte, flag byte) bool {
 		return false
 	}
 	bsize := len(buffer) + 2
-	pack := MsgPack{}
-	pack.Header[0] = byte(bsize)
-	pack.Header[1] = byte(bsize >> 8)
-	pack.Header[2] = byte(bsize >> 16)
-	pack.Header[3] = flag
-	pack.Header[4] = byte(cmd)
-	pack.Header[5] = byte(cmd >> 8)
-	pack.Data = buffer
-	pack.Flag = HeaderAndData
-	select {
-	case sess.sendChan <- pack:
-		atomic.AddInt32(&sess.sendCount, 1)
-	default:
-		xlog.Errorln("send buffer is full! the connection will be closed!")
+	sess.sendMutex.Lock()
+	if sess.sendBuffSizeLimit > 0 && sess.sendBuff.RdSize()+bsize > sess.sendBuffSizeLimit {
+		sess.sendMutex.Unlock()
+		xlog.Errorln("send buff size limit.")
 		sess.Close()
 		return false
+	}
+	header := [6]byte{byte(bsize), byte(bsize >> 8), byte(bsize >> 16), flag, byte(cmd), byte(cmd >> 8)}
+	sess.sendBuff.Append(header[:])
+	sess.sendBuff.Append(buffer)
+	sess.sendMutex.Unlock()
+	select {
+	case sess.sendChan <- 1:
+	default:
 	}
 	return true
 }
@@ -125,39 +130,42 @@ func (sess *Session) Send(buffer []byte, flag byte) bool {
 		return false
 	}
 	bsize := len(buffer)
-	pack := MsgPack{}
-	pack.Header[0] = byte(bsize)
-	pack.Header[1] = byte(bsize >> 8)
-	pack.Header[2] = byte(bsize >> 16)
-	pack.Header[3] = flag
-	pack.Data = buffer
-	pack.Flag = HeaderNoCmdAndData
-	select {
-	case sess.sendChan <- pack:
-		atomic.AddInt32(&sess.sendCount, 1)
-	default:
-		xlog.Errorln("send buffer is full! the connection will be closed!")
+	sess.sendMutex.Lock()
+	if sess.sendBuffSizeLimit > 0 && sess.sendBuff.RdSize()+bsize > sess.sendBuffSizeLimit {
+		sess.sendMutex.Unlock()
+		xlog.Errorln("send buff size limit.")
 		sess.Close()
 		return false
+	}
+	header := [4]byte{byte(bsize), byte(bsize >> 8), byte(bsize >> 16), flag}
+	sess.sendBuff.Append(header[:])
+	sess.sendBuff.Append(buffer)
+	sess.sendMutex.Unlock()
+	select {
+	case sess.sendChan <- 1:
+	default:
 	}
 	return true
 }
 
 // SendRaw : 发送原始数据
-func (sess *Session) SendRaw(data []byte) bool {
+func (sess *Session) SendRaw(buffer []byte) bool {
 	if sess.IsClosed() {
 		return false
 	}
-	pack := MsgPack{}
-	pack.Data = data
-	pack.Flag = DataOnly
-	select {
-	case sess.sendChan <- pack:
-		atomic.AddInt32(&sess.sendCount, 1)
-	default:
-		xlog.Errorln("send buffer is full! the connection will be closed!")
+	bsize := len(buffer)
+	sess.sendMutex.Lock()
+	if sess.sendBuffSizeLimit > 0 && sess.sendBuff.RdSize()+bsize > sess.sendBuffSizeLimit {
+		sess.sendMutex.Unlock()
+		xlog.Errorln("send buff size limit.")
 		sess.Close()
 		return false
+	}
+	sess.sendBuff.Append(buffer)
+	sess.sendMutex.Unlock()
+	select {
+	case sess.sendChan <- 1:
+	default:
 	}
 	return true
 }
@@ -247,31 +255,25 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 
 	for {
 		select {
-		case pack := <-sess.sendChan:
-			switch pack.Flag {
-			case HeaderAndData:
-				tmpByte.Append(pack.Header[:])
-				tmpByte.Append(pack.Data)
-			case HeaderNoCmdAndData:
-				tmpByte.Append(pack.Header[:4])
-				tmpByte.Append(pack.Data)
-			case DataOnly:
-				tmpByte.Append(pack.Data)
-			default:
-			}
-			if atomic.AddInt32(&sess.sendCount, -1) <= 0 {
-				for {
-					if !tmpByte.RdReady() {
-						tmpByte.Reset()
-						break
-					}
-					writenum, err = sess.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
-					if err != nil {
-						xlog.Infoln("send data fail. err =", err)
-						return
-					}
-					tmpByte.RdFlip(writenum)
+		case <-sess.sendChan:
+			for {
+				sess.sendMutex.Lock()
+				if sess.sendBuff.RdReady() {
+					tmpByte.Append(sess.sendBuff.RdBuf()[:sess.sendBuff.RdSize()])
+					sess.sendBuff.Reset()
 				}
+				sess.sendMutex.Unlock()
+
+				if !tmpByte.RdReady() {
+					break
+				}
+
+				writenum, err = sess.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
+				if err != nil {
+					xlog.Infoln("send data fail. err =", err)
+					return
+				}
+				tmpByte.RdFlip(writenum)
 			}
 		case <-sess.ctx.Done():
 			return

@@ -10,11 +10,13 @@ import (
 
 // Server : TCP 服务器类
 type Server struct {
-	listener  *net.TCPListener
-	sessType  reflect.Type
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	address   string
+	listener    *net.TCPListener
+	ctx         context.Context
+	ctxCancel   context.CancelFunc
+	sessType    reflect.Type
+	address     string
+	unfixedPort bool
+	realPort    int32
 }
 
 // RegisterSessType : 注册网络会话类型
@@ -22,9 +24,29 @@ func (server *Server) RegisterSessType(v interface{}) {
 	server.sessType = reflect.ValueOf(v).Type()
 }
 
+// SetAddress : 设置地址
+func (server *Server) SetAddress(address string, port int32) {
+	server.address = address
+	server.realPort = port
+}
+
+// SetUnfixedPort : 值为 True ，则寻找有效端口去监听
+func (server *Server) SetUnfixedPort(v bool) {
+	server.unfixedPort = v
+}
+
+// GetRealPort : 获取最终监听的端口
+func (server *Server) GetRealPort() int32 {
+	return server.realPort
+}
+
 // Start : 服务器启动
-func (server *Server) Start(address string) bool {
-	return server.startDetail(address, true)
+func (server *Server) Start() bool {
+	if server.unfixedPort == false {
+		address := fmt.Sprintf("%s:%d", server.address, server.realPort)
+		return server.startDetail(address, true)
+	}
+	return server.startByUnfixedPort(server.address, &server.realPort)
 }
 
 func (server *Server) startDetail(address string, printError bool) bool {
@@ -45,8 +67,7 @@ func (server *Server) startDetail(address string, printError bool) bool {
 	return true
 }
 
-// StartByUnfixedPort : 服务器启动，且会寻找有效端口去监听
-func (server *Server) StartByUnfixedPort(ip string, port *uint16) bool {
+func (server *Server) startByUnfixedPort(ip string, port *int32) bool {
 	for {
 		address := fmt.Sprintf("%s:%d", ip, *port)
 		if ok := server.startDetail(address, false); ok {
