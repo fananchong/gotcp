@@ -91,8 +91,10 @@ func (sess *Session) IsClosed() bool {
 
 // Verify : 设置已验证标记
 func (sess *Session) Verify() {
-	sess.verified = true
-	sess.verifiedChan <- 1
+	if !sess.verified {
+		sess.verified = true
+		sess.verifiedChan <- 1
+	}
 }
 
 // IsVerified : 是否已验证
