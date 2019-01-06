@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"time"
 )
 
@@ -95,15 +96,27 @@ func (server *Server) loop() {
 			return
 		default:
 			conn, err := server.accept()
-			if err == nil {
-				sess := reflect.New(server.sessType)
-				f := sess.MethodByName("Init")
-				f.Call([]reflect.Value{reflect.ValueOf(server.ctx), reflect.ValueOf(conn), sess})
-				f = sess.MethodByName("Start")
-				f.Call([]reflect.Value{})
-				f = sess.MethodByName("RemoteAddr")
-				addr := f.Call([]reflect.Value{})
-				xlog.Infoln("connect come in. client address =", addr)
+			if err == nil && server.sessType != nil {
+				func() {
+					defer func() {
+						if err := recover(); err != nil {
+							xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
+						}
+					}()
+					sess := reflect.New(server.sessType)
+					f := sess.MethodByName("Init")
+					f.Call([]reflect.Value{reflect.ValueOf(server.ctx), reflect.ValueOf(conn), sess})
+					f = sess.MethodByName("Start")
+					f.Call([]reflect.Value{})
+					f = sess.MethodByName("RemoteAddr")
+					addr := f.Call([]reflect.Value{})
+					xlog.Infoln("connect come in. client address =", addr)
+				}()
+			} else {
+				if conn != nil {
+					xlog.Errorln("you need call RegisterSessType, to register session type.")
+					conn.Close()
+				}
 			}
 		}
 	}
