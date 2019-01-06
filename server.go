@@ -88,6 +88,11 @@ func (server *Server) Close() {
 	server.listener = nil
 }
 
+// GetSessionType : 获取 Session 类型
+func (server *Server) GetSessionType() reflect.Type {
+	return server.sessType
+}
+
 func (server *Server) loop() {
 	for {
 		select {
