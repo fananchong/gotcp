@@ -18,6 +18,7 @@ type Server struct {
 	address     string
 	unfixedPort bool
 	realPort    int32
+	userdata    interface{}
 }
 
 // RegisterSessType : 注册网络会话类型
@@ -39,6 +40,11 @@ func (server *Server) SetUnfixedPort(v bool) {
 // GetRealPort : 获取最终监听的端口
 func (server *Server) GetRealPort() int32 {
 	return server.realPort
+}
+
+// SetUserData : 设置自定义数据
+func (server *Server) SetUserData(v interface{}) {
+	server.userdata = v
 }
 
 // Start : 服务器启动
@@ -110,7 +116,11 @@ func (server *Server) loop() {
 					}()
 					sess := reflect.New(server.sessType)
 					f := sess.MethodByName("Init")
-					f.Call([]reflect.Value{reflect.ValueOf(server.ctx), reflect.ValueOf(conn), sess})
+					if server.userdata == nil {
+						f.Call([]reflect.Value{reflect.ValueOf(server.ctx), reflect.ValueOf(conn), sess})
+					} else {
+						f.Call([]reflect.Value{reflect.ValueOf(server.ctx), reflect.ValueOf(conn), sess, reflect.ValueOf(server.userdata)})
+					}
 					f = sess.MethodByName("Start")
 					f.Call([]reflect.Value{})
 					f = sess.MethodByName("RemoteAddr")
