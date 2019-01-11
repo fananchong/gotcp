@@ -80,7 +80,7 @@ func (sess *Session) Close() {
 		sess.Conn.Close()
 		close(sess.sendChan)
 		sess.Derived.OnClose()
-		sess.Derived = nil
+		// sess.Derived = nil
 	}
 }
 
