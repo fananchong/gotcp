@@ -179,29 +179,18 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 		}
 	}()
 	defer sess.Close()
-
-	var (
-		neednum   int
-		readnum   int
-		err       error
-		totalsize int
-		datasize  int
-		msgbuff   []byte
-		recvBuff  = NewByteBuffer()
-	)
-
+	recvBuff := NewByteBuffer()
 	job.Done()
-
 	for {
 		select {
 		case <-sess.ctx.Done():
 			return
 		default:
-			totalsize = recvBuff.RdSize()
+			totalsize := recvBuff.RdSize()
 			if totalsize < cmdHeaderSize {
-				neednum = cmdHeaderSize - totalsize
+				neednum := cmdHeaderSize - totalsize
 				recvBuff.WrGrow(neednum)
-				readnum, err = io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
+				readnum, err := io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
 				if err != nil {
 					xlog.Infoln("recv data fail. error =", err)
 					return
@@ -209,8 +198,8 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 				recvBuff.WrFlip(readnum)
 				totalsize = recvBuff.RdSize()
 			}
-			msgbuff = recvBuff.RdBuf()
-			datasize = int(msgbuff[0]) | int(msgbuff[1])<<8 | int(msgbuff[2])<<16
+			msgbuff := recvBuff.RdBuf()
+			datasize := int(msgbuff[0]) | int(msgbuff[1])<<8 | int(msgbuff[2])<<16
 			if datasize > cmdMaxSize-cmdHeaderSize {
 				xlog.Errorln("data exceed the maximum. datasize =", datasize)
 				return
@@ -220,9 +209,9 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 				return
 			}
 			if totalsize < cmdHeaderSize+datasize {
-				neednum = cmdHeaderSize + datasize - totalsize
+				neednum := cmdHeaderSize + datasize - totalsize
 				recvBuff.WrGrow(neednum)
-				readnum, err = io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
+				readnum, err := io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
 				if err != nil {
 					xlog.Infoln("recv data fail. error =", err)
 					return
@@ -238,23 +227,16 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 }
 
 func (sess *Session) sendloop(job *sync.WaitGroup) {
-	var (
-		tmpByte  = NewByteBuffer()
-		writenum int
-		err      error
-		timeout  = time.NewTimer(time.Second * cmdVerifyTime)
-	)
-
 	defer func() {
 		if err := recover(); err != nil {
 			xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
 		}
 		sess.Close()
 	}()
+	tmpByte := NewByteBuffer()
+	timeout := time.NewTimer(time.Second * cmdVerifyTime)
 	defer timeout.Stop()
-
 	job.Done()
-
 	for {
 		select {
 		case <-sess.sendChan:
@@ -270,7 +252,7 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 					break
 				}
 
-				writenum, err = sess.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
+				writenum, err := sess.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
 				if err != nil {
 					xlog.Infoln("send data fail. err =", err)
 					return
