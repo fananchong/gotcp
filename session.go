@@ -24,17 +24,18 @@ const (
 
 // Session : 网络会话类
 type Session struct {
-	Conn              net.Conn
-	ctx               context.Context
-	ctxCancel         context.CancelFunc
-	sendBuff          *ByteBuffer
-	sendChan          chan int
-	sendMutex         sync.Mutex
-	sendBuffSizeLimit int // -1 没有限制
-	closed            int32
-	verified          bool
-	verifiedChan      chan int
-	Derived           ISession
+	Conn                  net.Conn
+	ctx                   context.Context
+	ctxCancel             context.CancelFunc
+	sendBuff              *ByteBuffer
+	sendChan              chan int
+	sendMutex             sync.Mutex
+	sendBuffSizeLimit     int // -1 没有限制
+	closed                int32
+	verified              bool
+	verifiedChan          chan int
+	Derived               ISession
+	closeAfterSendingChan chan int // 这数据发送完毕后，关闭
 }
 
 // SetSendBuffSizeLimt : 设置发送缓冲区限制
@@ -57,6 +58,7 @@ func (sess *Session) Init(root context.Context, conn net.Conn, derived ISession)
 	atomic.StoreInt32(&sess.closed, 0)
 	sess.verified = false
 	sess.verifiedChan = make(chan int, 1)
+	sess.closeAfterSendingChan = make(chan int, 1)
 }
 
 // Start : 启动网络会话
@@ -82,6 +84,11 @@ func (sess *Session) Close() {
 		sess.Derived.OnClose()
 		// sess.Derived = nil
 	}
+}
+
+// CloseAfterSending : 数据发送完毕后，关闭连接
+func (sess *Session) CloseAfterSending() {
+	sess.closeAfterSendingChan <- 1
 }
 
 // IsClosed : 是否已关闭
@@ -237,6 +244,7 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 	timeout := time.NewTimer(time.Second * cmdVerifyTime)
 	defer timeout.Stop()
 	job.Done()
+	var needClose bool
 	for {
 		select {
 		case <-sess.sendChan:
@@ -249,6 +257,10 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 				sess.sendMutex.Unlock()
 
 				if !tmpByte.RdReady() {
+					if needClose {
+						sess.Close()
+						return
+					}
 					break
 				}
 
@@ -259,6 +271,15 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 				}
 				tmpByte.RdFlip(writenum)
 			}
+		case <-sess.closeAfterSendingChan:
+			sess.sendMutex.Lock()
+			if !sess.sendBuff.RdReady() {
+				sess.sendMutex.Unlock()
+				sess.Close()
+				return
+			}
+			needClose = true
+			sess.sendMutex.Unlock()
 		case <-sess.ctx.Done():
 			return
 		case <-sess.verifiedChan:
