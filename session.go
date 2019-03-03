@@ -86,6 +86,18 @@ func (sess *Session) Close() {
 	}
 }
 
+// CloseSessionOnly : 关闭网络会话
+func (sess *Session) CloseSessionOnly() {
+	if atomic.CompareAndSwapInt32(&sess.closed, 1, 2) {
+		xlog.Infoln("disconnect. remote address =", sess.RemoteAddr())
+		if sess.ctxCancel != nil {
+			sess.ctxCancel()
+		}
+		sess.Conn.Close()
+		close(sess.sendChan)
+	}
+}
+
 // CloseAfterSending : 数据发送完毕后，关闭连接
 func (sess *Session) CloseAfterSending() {
 	sess.closeAfterSendingChan <- 1
