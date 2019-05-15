@@ -85,26 +85,21 @@ func GetCmdEx(buf []byte, maxCmdSize int) uint64 {
 	return v
 }
 
-// DecodeCmd : 解析数据，获取 protobuf 消息
-func DecodeCmd(buf []byte, flag byte, msg proto.Message) proto.Message {
-	return DecodeCmdEx(buf, flag, msg, DefaultMaxCmdSize)
-}
-
-// DecodeCmdEx : 解析数据，获取 protobuf 消息
-func DecodeCmdEx(buf []byte, flag byte, msg proto.Message, maxCmdSize int) proto.Message {
-	if len(buf) < maxCmdSize || len(buf) == 0 {
+// Decode : 解析数据，获取 protobuf 消息
+func Decode(buf []byte, flag byte, msg proto.Message) proto.Message {
+	if len(buf) == 0 {
 		xlog.Errorln("[协议] 数据错误 ", buf)
 		return nil
 	}
 	var mbuff []byte
 	if flag == 1 {
-		mbuff, err := zlibUnCompress(buf[maxCmdSize:])
+		mbuff, err := zlibUnCompress(buf)
 		if mbuff == nil {
 			xlog.Errorln("[协议] 解压错误 ", err)
 			return nil
 		}
 	} else {
-		mbuff = buf[maxCmdSize:]
+		mbuff = buf
 	}
 	err := proto.Unmarshal(mbuff, msg)
 	if err != nil {
@@ -112,6 +107,20 @@ func DecodeCmdEx(buf []byte, flag byte, msg proto.Message, maxCmdSize int) proto
 		return nil
 	}
 	return msg
+}
+
+// DecodeCmd : 解析数据，获取 protobuf 消息
+func DecodeCmd(buf []byte, flag byte, msg proto.Message) proto.Message {
+	return DecodeCmdEx(buf, flag, msg, DefaultMaxCmdSize)
+}
+
+// DecodeCmdEx : 解析数据，获取 protobuf 消息
+func DecodeCmdEx(buf []byte, flag byte, msg proto.Message, maxCmdSize int) proto.Message {
+	if len(buf) <= maxCmdSize {
+		xlog.Errorln("[协议] 数据错误 ", buf)
+		return nil
+	}
+	return Decode(buf[maxCmdSize:], flag, msg)
 }
 
 func zlibCompress(src []byte) ([]byte, error) {
