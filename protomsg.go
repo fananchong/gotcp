@@ -85,6 +85,19 @@ func GetCmdEx(buf []byte, maxCmdSize int) uint64 {
 	return v
 }
 
+// GetData : 获取数据
+func GetData(buf []byte) []byte {
+	return GetDataEx(buf, DefaultMaxCmdSize)
+}
+
+// GetDataEx : 获取数据
+func GetDataEx(buf []byte, maxCmdSize int) []byte {
+	if len(buf) < maxCmdSize || len(buf) == 0 {
+		return nil
+	}
+	return buf[maxCmdSize:]
+}
+
 // Decode : 解析数据，获取 protobuf 消息
 func Decode(buf []byte, flag byte, msg proto.Message) proto.Message {
 	if len(buf) == 0 {
