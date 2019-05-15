@@ -100,10 +100,6 @@ func GetDataEx(buf []byte, maxCmdSize int) []byte {
 
 // Decode : 解析数据，获取 protobuf 消息
 func Decode(buf []byte, flag byte, msg proto.Message) proto.Message {
-	if len(buf) == 0 {
-		xlog.Errorln("[协议] 数据错误 ", buf)
-		return nil
-	}
 	var mbuff []byte
 	if flag == 1 {
 		mbuff, err := zlibUnCompress(buf)
