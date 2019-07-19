@@ -86,5 +86,7 @@
 
 进程数： 1 服务器 ； 30 客户端
 
+启动脚本： [test.sh](test.sh)
+
 ![p1](assets/p1.jpg)
 ![p1](assets/p2.jpg)
