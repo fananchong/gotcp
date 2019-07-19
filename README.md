@@ -74,3 +74,15 @@
 参考了以下开源库：
 
 - <https://github.com/cpp2go/gonet>
+
+
+## 基准测试
+
+测试代码：
+- [example/server/server.go](example/server/server.go)
+- [example/client/client.go](example/client/client.go)
+
+机器配置： CPU 32核
+
+![p1](assets/p1.jpg)
+![p1](assets/p2.jpg)
