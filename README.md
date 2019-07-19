@@ -84,5 +84,7 @@
 
 机器配置： CPU 32核
 
+进程数： 1 服务器 ； 30 客户端
+
 ![p1](assets/p1.jpg)
 ![p1](assets/p2.jpg)
