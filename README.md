@@ -82,7 +82,7 @@
 - [example/server/server.go](example/server/server.go)
 - [example/client/client.go](example/client/client.go)
 
-机器配置： CPU 32核
+机器配置： CPU 32核 ； 主频 2599.994
 
 进程数： 1 服务器 ； 30 客户端
 
