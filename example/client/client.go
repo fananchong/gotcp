@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"net/http"
-	_ "net/http/pprof"
+	//"net/http"
+	//_ "net/http/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -42,10 +42,11 @@ var g_num string
 var g_counter int32
 
 func main() {
-	go http.ListenAndServe(":8001", nil)
+	//go http.ListenAndServe(":8001", nil)
 
 	echo := &Echo{}
-	echo.Connect("localhost:3000", echo)
+	for !echo.Connect("localhost:30000", echo) {
+	}
 	g_num = strconv.Itoa(int(rand.Int31n(1000)))
 	echo.Send([]byte(g_num), 0)
 	tick := time.NewTicker(5 * time.Second)

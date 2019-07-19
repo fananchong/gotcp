@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-	_ "net/http/pprof"
+	//"net/http"
+	//_ "net/http/pprof"
 	"sync/atomic"
 	"time"
 
@@ -18,7 +18,7 @@ func (this *Echo) OnRecv(data []byte, flag byte) {
 	if this.IsVerified() == false {
 		this.Verify()
 	}
-	atomic.AddInt32(&g_counter, 1)
+	atomic.AddInt64(&counter, 1)
 	this.Send(data, flag)
 }
 
@@ -26,27 +26,26 @@ func (this *Echo) OnClose() {
 	fmt.Println("Echo.OnClose")
 }
 
-var g_counter int32 = 0
+var counter int64
 
 func main() {
 
-	go http.ListenAndServe(":8000", nil)
+	//go http.ListenAndServe(":8000", nil)
 
 	s := &gotcp.Server{}
 	s.RegisterSessType(Echo{})
-	s.SetAddress("127.0.0.1", 3000)
-	s.SetUnfixedPort(true)
+	s.SetAddress("127.0.0.1", 30000)
+	//s.SetUnfixedPort(true)
 	s.Start()
 
-	tick := time.NewTicker(5 * time.Second)
-	pre := time.Now()
+	var t = time.Now().UnixNano() / 1e6
 	for {
 		select {
-		case now := <-tick.C:
-			count := atomic.SwapInt32(&g_counter, 0)
-			detal := (now.UnixNano() - pre.UnixNano()) / int64(time.Second)
-			fmt.Println("count = ", count/int32(detal))
-			pre = now
+		case <-time.After(time.Second * 5):
+			now := time.Now().UnixNano() / 1e6
+			v := atomic.SwapInt64(&counter, 0)
+			fmt.Println("count: ", float64(v)/float64((now-t)/1000), "/s")
+			t = now
 		}
 	}
 }
