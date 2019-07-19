@@ -4,6 +4,7 @@ import (
 	"fmt"
 	//"net/http"
 	//_ "net/http/pprof"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -44,7 +45,7 @@ func main() {
 		case <-time.After(time.Second * 5):
 			now := time.Now().UnixNano() / 1e6
 			v := atomic.SwapInt64(&counter, 0)
-			fmt.Println("count: ", float64(v)/float64((now-t)/1000), "/s")
+			log.Print("count: ", float64(v)/float64((now-t)/1000), "/s")
 			t = now
 		}
 	}
