@@ -78,15 +78,16 @@
 
 ## 基准测试
 
-测试代码：
-- [example/server/server.go](example/server/server.go)
-- [example/client/client.go](example/client/client.go)
+- 测试代码：
+	- [example/server/server.go](example/server/server.go)
+	- [example/client/client.go](example/client/client.go)
 
-机器配置： CPU 32核 ； 主频 2599.994
-
-进程数： 1 服务器 ； 30 客户端
-
-启动脚本： [test.sh](test.sh)
+- 机器配置： CPU 16核 ； 主频 2600
+- 进程数： 1 服务器 ； 30 客户端
+- 启动脚本： [test.sh](test.sh)
+- 整机 CPU 70%
+- 服务器程序 CPU 占 25.5% （  407.9 / 1600  ）
+- 24w qps
 
 ![p1](assets/p1.jpg)
 ![p1](assets/p2.jpg)
