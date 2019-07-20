@@ -87,7 +87,7 @@
 - 启动脚本： [test.sh](test.sh)
 - 整机 CPU 70%
 - 服务器程序 CPU 占 25.5% （  407.9 / 1600  ）
-- 24w qps
+- 23w qps
 
 ![p1](assets/p1.jpg)
 ![p1](assets/p2.jpg)
