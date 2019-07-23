@@ -5,6 +5,12 @@ import (
 	"net"
 )
 
+// DefaultRecvBuffSize socket 接收缓冲区大小
+const DefaultRecvBuffSize = 128 * 1024 // 单位：字节
+
+// DefaultSendBuffSize socket 发送缓冲区大小
+const DefaultSendBuffSize = 128 * 1024 // 单位：字节
+
 // GetVaildPort : 获取 1 个有效的端口
 func GetVaildPort(showmsg bool) int {
 	port := 10000

@@ -34,7 +34,7 @@ func connectDetail(address string) (*net.TCPConn, error) {
 	conn.SetKeepAlive(true)
 	conn.SetKeepAlivePeriod(1 * time.Minute)
 	conn.SetNoDelay(true)
-	conn.SetWriteBuffer(128 * 1024)
-	conn.SetReadBuffer(128 * 1024)
+	conn.SetWriteBuffer(DefaultSendBuffSize)
+	conn.SetReadBuffer(DefaultRecvBuffSize)
 	return conn, nil
 }

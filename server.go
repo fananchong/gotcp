@@ -6,6 +6,8 @@ import (
 	"net"
 	"reflect"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -30,6 +32,11 @@ func (server *Server) RegisterSessType(v interface{}) {
 func (server *Server) SetAddress(address string, port int32) {
 	server.address = address
 	server.realPort = port
+}
+
+// GetAddress 获取地址
+func (server *Server) GetAddress() string {
+	return fmt.Sprintf("%s:%d", server.address, server.realPort)
 }
 
 // SetUnfixedPort : 值为 True ，则寻找有效端口去监听
@@ -70,7 +77,7 @@ func (server *Server) startDetail(address string, printError bool) bool {
 	}
 	xlog.Infoln("start listen", address)
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
-	go server.loop()
+	go server.loop(nil)
 	return true
 }
 
@@ -99,7 +106,7 @@ func (server *Server) GetSessionType() reflect.Type {
 	return server.sessType
 }
 
-func (server *Server) loop() {
+func (server *Server) loop(fn func(s interface{})) {
 	for {
 		select {
 		case <-server.ctx.Done():
@@ -126,6 +133,9 @@ func (server *Server) loop() {
 					f = sess.MethodByName("RemoteAddr")
 					addr := f.Call([]reflect.Value{})
 					xlog.Infoln("connect come in. client address =", addr)
+					if fn != nil {
+						fn(sess.Interface())
+					}
 				}()
 			} else {
 				if conn != nil {
@@ -161,7 +171,34 @@ func (server *Server) accept() (*net.TCPConn, error) {
 	conn.SetKeepAlive(true)
 	conn.SetKeepAlivePeriod(1 * time.Minute)
 	conn.SetNoDelay(true)
-	conn.SetWriteBuffer(128 * 1024)
-	conn.SetReadBuffer(128 * 1024)
+	conn.SetWriteBuffer(DefaultSendBuffSize)
+	conn.SetReadBuffer(DefaultRecvBuffSize)
 	return conn, nil
+}
+
+// Listen listen
+func (server *Server) Listen(addr string) (err error) {
+	addrs := strings.Split(addr, ":")
+	if addrs[0] == "" {
+		addrs[0] = "0.0.0.0"
+	}
+	server.address = addrs[0]
+	var port int
+	if port, err = strconv.Atoi(addrs[1]); err != nil {
+		return
+	}
+	server.realPort = int32(port)
+	err = server.bind(addr)
+	if err != nil {
+		return
+	}
+	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
+	xlog.Infoln("start listen", addr)
+	return
+}
+
+// Accept accept
+func (server *Server) Accept(fn func(s interface{})) error {
+	server.loop(fn)
+	return nil
 }
