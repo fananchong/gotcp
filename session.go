@@ -310,3 +310,11 @@ func (sess *Session) RemoteAddr() string {
 	}
 	return sess.Conn.RemoteAddr().String()
 }
+
+// LocalAddr : 本地 IP 地址
+func (sess *Session) LocalAddr() string {
+	if sess.Conn == nil {
+		return ""
+	}
+	return sess.Conn.LocalAddr().String()
+}
