@@ -36,7 +36,7 @@ func (server *Server) SetAddress(address string, port int32) {
 
 // GetAddress 获取地址
 func (server *Server) GetAddress() string {
-	return fmt.Sprintf("%s:%d", server.address, server.realPort)
+	return server.listener.Addr().String()
 }
 
 // SetUnfixedPort : 值为 True ，则寻找有效端口去监听
@@ -75,7 +75,7 @@ func (server *Server) startDetail(address string, printError bool) bool {
 		}
 		return false
 	}
-	xlog.Infoln("start listen", address)
+	xlog.Infoln("start listen", server.listener.Addr())
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
 	go server.loop(nil)
 	return true
@@ -110,7 +110,7 @@ func (server *Server) loop(fn func(s interface{})) {
 	for {
 		select {
 		case <-server.ctx.Done():
-			xlog.Infoln("server close. address =", server.address)
+			xlog.Infoln("server close. address =", server.listener.Addr())
 			return
 		default:
 			conn, err := server.accept()
@@ -193,7 +193,7 @@ func (server *Server) Listen(addr string) (err error) {
 		return
 	}
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
-	xlog.Infoln("start listen", addr)
+	xlog.Infoln("start listen", server.listener.Addr())
 	return
 }
 
