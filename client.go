@@ -1,7 +1,9 @@
 package gotcp
 
 import (
+	"context"
 	"net"
+	"reflect"
 	"time"
 )
 
@@ -13,7 +15,13 @@ func (sess *Session) Connect(address string, derived ISession) bool {
 	}
 	conn, err := connectDetail(address)
 	if err == nil {
-		sess.Init(nil, conn, derived)
+		obj := reflect.ValueOf(derived)
+		f := obj.MethodByName("Init")
+		if !f.IsNil() {
+			f.Call([]reflect.Value{reflect.ValueOf(context.Background()), reflect.ValueOf(conn), obj})
+		} else {
+			sess.Init(context.Background(), conn, derived)
+		}
 		sess.Start()
 		xlog.Infoln("connect server success. server address =", sess.RemoteAddr())
 		return true
