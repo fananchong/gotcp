@@ -134,7 +134,7 @@ func (server *Server) loop(fn func(s interface{})) {
 					addr := f.Call([]reflect.Value{})
 					xlog.Infoln("connect come in. client address =", addr)
 					if fn != nil {
-						fn(sess.Interface())
+						go fn(sess.Interface())
 					}
 				}()
 			} else {
