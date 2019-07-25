@@ -110,7 +110,7 @@ func (server *Server) loop(fn func(s interface{})) {
 	for {
 		select {
 		case <-server.ctx.Done():
-			xlog.Infoln("server close. address =", server.listener.Addr())
+			xlog.Infoln("server close")
 			return
 		default:
 			conn, err := server.accept()
