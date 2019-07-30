@@ -10,7 +10,7 @@ import (
 // Connect : 连接服务器
 func (sess *Session) Connect(address string, derived ISession) bool {
 	if sess.IsClosed() == false {
-		xlog.Errorln("close session. server address =", sess.RemoteAddr())
+		xlog.Error("close session. server address =", sess.RemoteAddr())
 		sess.Close()
 	}
 	conn, err := connectDetail(address)
@@ -23,10 +23,10 @@ func (sess *Session) Connect(address string, derived ISession) bool {
 			sess.Init(context.Background(), conn, derived)
 		}
 		sess.Start()
-		xlog.Infoln("connect server success. server address =", sess.RemoteAddr())
+		xlog.Info("connect server success. server address =", sess.RemoteAddr())
 		return true
 	}
-	xlog.Errorln(err)
+	xlog.Error(err)
 	return false
 }
 

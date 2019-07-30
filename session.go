@@ -75,7 +75,7 @@ func (sess *Session) Start() {
 // Close : 关闭网络会话
 func (sess *Session) Close() {
 	if atomic.CompareAndSwapInt32(&sess.closed, 1, 2) {
-		xlog.Infoln("disconnect. remote address =", sess.RemoteAddr())
+		xlog.Info("disconnect. remote address =", sess.RemoteAddr())
 		if sess.ctxCancel != nil {
 			sess.ctxCancel()
 		}
@@ -89,7 +89,7 @@ func (sess *Session) Close() {
 // CloseSessionOnly : 关闭网络会话
 func (sess *Session) CloseSessionOnly() {
 	if atomic.CompareAndSwapInt32(&sess.closed, 1, 2) {
-		xlog.Infoln("disconnect. remote address =", sess.RemoteAddr())
+		xlog.Info("disconnect. remote address =", sess.RemoteAddr())
 		if sess.ctxCancel != nil {
 			sess.ctxCancel()
 		}
@@ -130,7 +130,7 @@ func (sess *Session) SendEx(cmd int, buffer []byte, flag byte) bool {
 	sess.sendMutex.Lock()
 	if sess.sendBuffSizeLimit > 0 && sess.sendBuff.RdSize()+bsize > sess.sendBuffSizeLimit {
 		sess.sendMutex.Unlock()
-		xlog.Errorln("send buff size limit.")
+		xlog.Error("send buff size limit.")
 		sess.Close()
 		return false
 	}
@@ -154,7 +154,7 @@ func (sess *Session) Send(buffer []byte, flag byte) bool {
 	sess.sendMutex.Lock()
 	if sess.sendBuffSizeLimit > 0 && sess.sendBuff.RdSize()+bsize > sess.sendBuffSizeLimit {
 		sess.sendMutex.Unlock()
-		xlog.Errorln("send buff size limit.")
+		xlog.Error("send buff size limit.")
 		sess.Close()
 		return false
 	}
@@ -178,7 +178,7 @@ func (sess *Session) SendRaw(buffer []byte) bool {
 	sess.sendMutex.Lock()
 	if sess.sendBuffSizeLimit > 0 && sess.sendBuff.RdSize()+bsize > sess.sendBuffSizeLimit {
 		sess.sendMutex.Unlock()
-		xlog.Errorln("send buff size limit.")
+		xlog.Error("send buff size limit.")
 		sess.Close()
 		return false
 	}
@@ -194,7 +194,7 @@ func (sess *Session) SendRaw(buffer []byte) bool {
 func (sess *Session) recvloop(job *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
-			xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
+			xlog.Error("[except] ", err, "\n", string(debug.Stack()))
 		}
 	}()
 	defer sess.Close()
@@ -211,7 +211,7 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 				recvBuff.WrGrow(neednum)
 				readnum, err := io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
 				if err != nil {
-					xlog.Infoln("recv data fail. error =", err)
+					xlog.Info("recv data fail. error =", err)
 					return
 				}
 				recvBuff.WrFlip(readnum)
@@ -220,11 +220,11 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 			msgbuff := recvBuff.RdBuf()
 			datasize := int(msgbuff[0]) | int(msgbuff[1])<<8 | int(msgbuff[2])<<16
 			if datasize > cmdMaxSize-cmdHeaderSize {
-				xlog.Errorln("data exceed the maximum. datasize =", datasize)
+				xlog.Error("data exceed the maximum. datasize =", datasize)
 				return
 			}
 			if datasize <= 0 {
-				xlog.Errorln("data length is 0 or negative. datasize =", datasize)
+				xlog.Error("data length is 0 or negative. datasize =", datasize)
 				return
 			}
 			if totalsize < cmdHeaderSize+datasize {
@@ -232,7 +232,7 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 				recvBuff.WrGrow(neednum)
 				readnum, err := io.ReadAtLeast(sess.Conn, recvBuff.WrBuf(), neednum)
 				if err != nil {
-					xlog.Infoln("recv data fail. error =", err)
+					xlog.Info("recv data fail. error =", err)
 					return
 				}
 				recvBuff.WrFlip(readnum)
@@ -248,7 +248,7 @@ func (sess *Session) recvloop(job *sync.WaitGroup) {
 func (sess *Session) sendloop(job *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
-			xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
+			xlog.Error("[except] ", err, "\n", string(debug.Stack()))
 		}
 		sess.Close()
 	}()
@@ -278,7 +278,7 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 
 				writenum, err := sess.Conn.Write(tmpByte.RdBuf()[:tmpByte.RdSize()])
 				if err != nil {
-					xlog.Infoln("send data fail. err =", err)
+					xlog.Info("send data fail. err =", err)
 					return
 				}
 				tmpByte.RdFlip(writenum)
@@ -297,7 +297,7 @@ func (sess *Session) sendloop(job *sync.WaitGroup) {
 		case <-sess.verifiedChan:
 			timeout.Stop()
 		case <-timeout.C:
-			xlog.Infoln("verify timeout, remote address =", sess.RemoteAddr())
+			xlog.Info("verify timeout, remote address =", sess.RemoteAddr())
 			return
 		}
 	}

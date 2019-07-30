@@ -5,10 +5,8 @@ import "fmt"
 // ILogger : 日志类接口
 type ILogger interface {
 	Info(args ...interface{})
-	Infoln(args ...interface{})
 	Infof(format string, args ...interface{})
 	Error(args ...interface{})
-	Errorln(args ...interface{})
 	Errorf(format string, args ...interface{})
 }
 
@@ -26,11 +24,6 @@ func (logger *DefaultLogger) Info(args ...interface{}) {
 	fmt.Print(args...)
 }
 
-// Infoln :
-func (logger *DefaultLogger) Infoln(args ...interface{}) {
-	fmt.Println(args...)
-}
-
 // Infof :
 func (logger *DefaultLogger) Infof(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
@@ -39,11 +32,6 @@ func (logger *DefaultLogger) Infof(format string, args ...interface{}) {
 // Error :
 func (logger *DefaultLogger) Error(args ...interface{}) {
 	fmt.Print(args...)
-}
-
-// Errorln :
-func (logger *DefaultLogger) Errorln(args ...interface{}) {
-	fmt.Println(args...)
 }
 
 // Errorf :

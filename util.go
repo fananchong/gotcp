@@ -20,14 +20,14 @@ func GetVaildPort(showmsg bool) int {
 		tcpAddr, err := net.ResolveTCPAddr("tcp4", address)
 		if err != nil {
 			if showmsg {
-				xlog.Errorln(err)
+				xlog.Error(err)
 			}
 			continue
 		}
 		listener, err := net.ListenTCP("tcp", tcpAddr)
 		if err != nil {
 			if showmsg {
-				xlog.Errorln(err)
+				xlog.Error(err)
 			}
 			if listener != nil {
 				listener.Close()

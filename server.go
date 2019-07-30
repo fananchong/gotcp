@@ -71,11 +71,11 @@ func (server *Server) startDetail(address string, printError bool) bool {
 	err := server.bind(address)
 	if err != nil {
 		if printError {
-			xlog.Errorln(err)
+			xlog.Error(err)
 		}
 		return false
 	}
-	xlog.Infoln("start listen", server.listener.Addr())
+	xlog.Info("start listen", server.listener.Addr())
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
 	go server.loop(nil)
 	return true
@@ -110,7 +110,7 @@ func (server *Server) loop(fn func(s interface{})) {
 	for {
 		select {
 		case <-server.ctx.Done():
-			xlog.Infoln("server close")
+			xlog.Info("server close")
 			return
 		default:
 			conn, err := server.accept()
@@ -118,7 +118,7 @@ func (server *Server) loop(fn func(s interface{})) {
 				func() {
 					defer func() {
 						if err := recover(); err != nil {
-							xlog.Errorln("[except] ", err, "\n", string(debug.Stack()))
+							xlog.Error("[except] ", err, "\n", string(debug.Stack()))
 						}
 					}()
 					sess := reflect.New(server.sessType)
@@ -132,14 +132,14 @@ func (server *Server) loop(fn func(s interface{})) {
 					f.Call([]reflect.Value{})
 					f = sess.MethodByName("RemoteAddr")
 					addr := f.Call([]reflect.Value{})
-					xlog.Infoln("connect come in. client address =", addr)
+					xlog.Info("connect come in. client address =", addr)
 					if fn != nil {
 						go fn(sess.Interface())
 					}
 				}()
 			} else {
 				if conn != nil {
-					xlog.Errorln("you need call RegisterSessType, to register session type.")
+					xlog.Error("you need call RegisterSessType, to register session type.")
 					conn.Close()
 				}
 			}
@@ -164,7 +164,7 @@ func (server *Server) accept() (*net.TCPConn, error) {
 	conn, err := server.listener.AcceptTCP()
 	if err != nil {
 		if opErr, ok := err.(*net.OpError); ok && !opErr.Timeout() {
-			xlog.Errorln(err)
+			xlog.Error(err)
 		}
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (server *Server) Listen(addr string) (err error) {
 		return
 	}
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
-	xlog.Infoln("start listen", server.listener.Addr())
+	xlog.Info("start listen", server.listener.Addr())
 	return
 }
 
