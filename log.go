@@ -21,7 +21,7 @@ func NewDefaultLogger() *DefaultLogger {
 
 // Info :
 func (logger *DefaultLogger) Info(args ...interface{}) {
-	fmt.Print(args...)
+	fmt.Println(args...)
 }
 
 // Infof :
@@ -31,7 +31,7 @@ func (logger *DefaultLogger) Infof(format string, args ...interface{}) {
 
 // Error :
 func (logger *DefaultLogger) Error(args ...interface{}) {
-	fmt.Print(args...)
+	fmt.Println(args...)
 }
 
 // Errorf :
