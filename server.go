@@ -110,7 +110,7 @@ func (server *Server) loop(fn func(s interface{})) {
 	for {
 		select {
 		case <-server.ctx.Done():
-			xlog.Info("server close")
+			//xlog.Info("server close")
 			return
 		default:
 			conn, err := server.accept()
@@ -164,7 +164,7 @@ func (server *Server) accept() (*net.TCPConn, error) {
 	conn, err := server.listener.AcceptTCP()
 	if err != nil {
 		if opErr, ok := err.(*net.OpError); ok && !opErr.Timeout() {
-			xlog.Error(err)
+			//xlog.Error(err)
 		}
 		return nil, err
 	}
