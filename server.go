@@ -75,7 +75,7 @@ func (server *Server) startDetail(address string, printError bool) bool {
 		}
 		return false
 	}
-	xlog.Info("start listen", server.listener.Addr())
+	//xlog.Info("start listen", server.listener.Addr())
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
 	go server.loop(nil)
 	return true
@@ -193,7 +193,7 @@ func (server *Server) Listen(addr string) (err error) {
 		return
 	}
 	server.ctx, server.ctxCancel = context.WithCancel(context.Background())
-	xlog.Info("start listen", server.listener.Addr())
+	//xlog.Info("start listen", server.listener.Addr())
 	return
 }
 
