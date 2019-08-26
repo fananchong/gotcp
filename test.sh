@@ -2,7 +2,10 @@
 
 set -ex
 
-pkill -9 client
+pids=`ps -ux | grep client | grep -v grep  | awk '{print $2}'`
+if [[ $pids != "" ]]; then
+    kill -9 $pids
+fi
 
 cd bin
 
